@@ -14,6 +14,8 @@
 #include <QPainter>
 #include <QStaticText>
 #include <QCameraInfo>
+#include <QFontDialog>
+#include <QString>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -32,6 +34,8 @@ public slots:
     void apply();
     void revert();
     void config_changed();
+    void change_font();
+    void update_font_label();
 
 signals:
     void image_processed(QPixmap img);
@@ -47,13 +51,20 @@ private:
     QCameraInfo selected_camera;
 
     bool thread_running = false;
-    QString chars = " .~#☻░▒";
-    int source_width = 480;
-    int source_height = 360;
+    QString chars = "@#P+;-. ";
+    int source_width = 320;
+    int source_height = 240;
+
     int ascii_width = 771;
     int ascii_height = 531;
+
+    int bitmap_width = 771;
+    int bitmap_height = 531;
+
     int refresh_timer = 25;
     bool disable_process = false;
+    QFont canvasFont;
+    QFont canvasFont_tmp;
 
     int fps = 0;
 

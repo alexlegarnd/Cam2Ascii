@@ -13,6 +13,8 @@ MainWindow::MainWindow(QWidget *parent)
         ui->devicesBox->addItem(cameraInfo.description());
     }
     ui->devicesBox->setEditText(QCameraInfo::defaultCamera().description());
+    canvasFont = QFont("Consolas", 6);
+    canvasFont.setStyleStrategy(QFont::PreferAntialias);
     revert();
     init(QCameraInfo::defaultCamera());
     QObject::connect(ui->startAndStopButton, &QPushButton::clicked, this, &MainWindow::start_or_stop);
@@ -21,10 +23,13 @@ MainWindow::MainWindow(QWidget *parent)
     QObject::connect(ui->sourceHeight, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &MainWindow::config_changed);
     QObject::connect(ui->asciiWidth, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &MainWindow::config_changed);
     QObject::connect(ui->asciiHeight, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &MainWindow::config_changed);
+    QObject::connect(ui->bitmapWidth, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &MainWindow::config_changed);
+    QObject::connect(ui->bitmapHeight, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), this, &MainWindow::config_changed);
     QObject::connect(ui->charEdit, &QLineEdit::textEdited, this, &MainWindow::config_changed);
     QObject::connect(ui->disableProcess, &QCheckBox::clicked, this, &MainWindow::config_changed);
     QObject::connect(ui->applyButton, &QPushButton::clicked, this, &MainWindow::apply);
     QObject::connect(ui->revertButton, &QPushButton::clicked, this, &MainWindow::revert);
+    QObject::connect(ui->fontButton, &QPushButton::clicked, this, &MainWindow::change_font);
     QObject::connect(this, &MainWindow::image_processed, [&, this] (QPixmap img) {
         img = img.scaled(ascii_width, ascii_height);
         ui->screen->setPixmap(img);
@@ -87,17 +92,17 @@ void MainWindow::convert(QImage in) {
         }
         res += '\n';
     }
-    QBitmap bitmap(1920,1080);
-    bitmap.fill(Qt::white);
-    QPainter painter(&bitmap);
-    QFont serifFont("Consolas", 12);
-    painter.setFont(serifFont);
+    QImage image(bitmap_width, bitmap_height, QImage::Format_Grayscale8);
+    image.fill(Qt::white);
+    QPainter painter(&image);
+    painter.setRenderHints(QPainter::TextAntialiasing);
+    painter.setFont(canvasFont);
     painter.setPen(Qt::black);
-    const QRect rectangle = QRect(0, 0, 1920, 1080);
+    const QRect rectangle = QRect(0, 0, bitmap_width, bitmap_height);
     QRect boundingRect;
     painter.drawText(rectangle, 0, res, &boundingRect);
     painter.save();
-    QPixmap pix(bitmap);
+    QPixmap pix = QPixmap::fromImage(image);
     emit image_processed(pix);
 }
 
@@ -140,9 +145,12 @@ void MainWindow::apply() {
     source_height = ui->sourceHeight->value();
     ascii_width = ui->asciiWidth->value();
     ascii_height = ui->asciiHeight->value();
+    bitmap_width = ui->bitmapWidth->value();
+    bitmap_height = ui->bitmapHeight->value();
     chars = ui->charEdit->text();
     disable_process = ui->disableProcess->checkState();
     refresh_timer = ui->refreshTimer->value();
+    canvasFont = canvasFont_tmp;
 }
 
 void MainWindow::revert() {
@@ -150,13 +158,32 @@ void MainWindow::revert() {
     ui->sourceHeight->setValue(source_height);
     ui->asciiWidth->setValue(ascii_width);
     ui->asciiHeight->setValue(ascii_height);
+    ui->bitmapWidth->setValue(bitmap_width);
+    ui->bitmapHeight->setValue(bitmap_height);
     ui->charEdit->setText(chars);
     ui->refreshTimer->setValue(refresh_timer);
     ui->applyButton->setEnabled(false);
     ui->revertButton->setEnabled(false);
+    canvasFont_tmp = canvasFont;
+    update_font_label();
 }
 
 void MainWindow::config_changed() {
     ui->applyButton->setEnabled(true);
     ui->revertButton->setEnabled(true);
+}
+
+void MainWindow::change_font() {
+    bool ok;
+    QFont font = QFontDialog::getFont(&ok, canvasFont_tmp, this);
+    if (ok) {
+        canvasFont_tmp = font;
+        canvasFont_tmp.setStyleStrategy(QFont::PreferAntialias);
+        config_changed();
+        update_font_label();
+    }
+}
+
+void MainWindow::update_font_label() {
+    ui->fontLabel->setText(canvasFont_tmp.toString());
 }
